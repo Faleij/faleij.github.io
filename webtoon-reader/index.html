@@ -1,0 +1,196 @@
+<style>
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+}
+
+div {
+    width: 100vw;
+    max-width:100%;
+}
+
+img {
+    object-fit: contain;
+    margin: auto;
+    display: block;
+    max-width:100%;
+}
+
+#result[scaling=contain] img {
+    height: 100vh;
+    width: 100vw;
+}
+#result[scaling=height] img {
+    height: 100vh;
+}
+#result[scaling=width] img {
+    width: 100vw;
+}
+
+#result .image[scaling=none] img {
+    height: auto;
+    width: auto;
+}
+#result .image[scaling=contain] img {
+    height: 100vh;
+    width: 100vw;
+}
+#result .image[scaling=height] img {
+    height: 100vh;
+    width: auto;
+}
+#result .image[scaling=width] img {
+    width: 100vw;
+    height: auto;
+}
+</style>
+<body>
+    <h3>Choose or drop a cbz</h3>
+    <input type="file" id="file" name="file" multiple /><br />
+
+    <select id="scaling" placeholder="Select scaling method">
+        <option value="none">None</option>
+        <option value="contain">Fit</option>
+        <option value="width">Viewport Width</option>
+        <option value="height">Viewport Height</option>
+    </select>
+
+    <div id="result_block" class="hidden">
+        <div id="result"></div>
+    </div>
+</body>
+<script src="jszip.min.js"></script>
+<script src="idbkvstore.min.js"></script>
+<script>
+    
+const scalings = [
+    'none',
+    'contain',
+    'width',
+    'height',
+];
+function toggleScaling() {
+    const scaling = this.parentElement.getAttribute('scaling') || result.getAttribute('scaling') || scalings[0];
+    const i = (scalings.indexOf(scaling) + 1) % scalings.length;
+    this.parentElement.setAttribute('scaling', scalings[i]);
+}
+scaling.addEventListener('change', () => {
+    result.setAttribute('scaling', scaling.value);
+    localStorage.setItem('scaling', scalings.indexOf(scaling.value));
+});
+scaling.selectedIndex = localStorage.getItem('scaling') || 0;
+scaling.dispatchEvent(new Event('change'));
+
+document.body.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    for (const file of ev.dataTransfer.files) {
+        handleFile(file);
+    }
+});
+document.body.addEventListener('dragover', (ev) => {
+    ev.preventDefault();
+});
+const $ = (str, attr) => {
+    if (str.startsWith('<')) {
+        const tagName = str.slice(1, -1);
+        const el = document.createElement(tagName);
+        for (const [key, val] of Object.entries(attr || {})) {
+            if (key === 'text') el.textContent = val;
+            else el.setAttribute(key, val);
+        }
+        return el;
+    }
+    return (str || document.body).querySelectorAll(el);
+}
+file.addEventListener('change', function(evt) {
+    // remove content
+    result.innerHTML = '';
+    // be sure to show the results
+    result_block.classList.remove('hidden');
+    result_block.classList.add('show');
+
+    var files = evt.target.files;
+    for (var i = 0; i < files.length; i++) {
+        handleFile(files[i]);
+    }
+});
+
+
+var fileStore = new IdbKvStore('file');
+
+let options = {
+  root: null,
+  rootMargin: '0px',
+  threshold: 0.25,
+};
+
+let observer = new IntersectionObserver((e) => {
+    const intersecting = e.find((entry) => entry.isIntersecting)
+    console.log(intersecting);
+    if (intersecting) localStorage.setItem('scrollTarget', intersecting.target.getAttribute('title'));
+}, options);
+
+// Closure to capture the file information.
+async function handleFile(f) {
+    var $fileContent = $('<div>');
+    const $title = $('<h4>');
+    result.appendChild($title);
+    result.appendChild($fileContent);
+
+    const scrollTarget = localStorage.getItem('scrollTarget');
+
+    try {
+        const zip = await JSZip.loadAsync(f);
+        let imageLoadPromises = [];
+        console.log('zip', zip);
+        for (const zipEntry of Object.values(zip.files)) {
+            if (zipEntry.isDir) continue;
+
+            const li = $('<div>', {
+                class: 'image',
+                title: zipEntry.name,
+            });
+            $fileContent.appendChild(li);
+
+            const bytes = await zipEntry.async('uint8array');
+            var blob = new Blob([bytes.buffer]);
+            const img = $('<img>');
+            imageLoadPromises.push(new Promise((resolve) => {
+                img.onerror = () => {
+                    $fileContent.removeChild(li);
+                    resolve();
+                };
+                img.onload = resolve;
+                img.src = URL.createObjectURL(blob);
+            }).then(() => {
+                if (zipEntry.name === scrollTarget) {
+                    li.scrollIntoView();
+                }
+                return li;
+            }));
+            li.appendChild(img);
+            img.addEventListener('click', toggleScaling);
+        }
+
+        const lis = await Promise.all(imageLoadPromises);
+        setTimeout(() => lis.forEach(li => {
+            observer.observe(li);
+        }), 1000);
+
+        console.log('loaded all images');
+        fileStore.set('file', f);
+    } catch (e) {
+        result.appendChild($('<div>', {
+            class: 'alert alert-danger',
+            text: 'Error reading ' + f.name + ': ' + e.message
+        }));
+    }
+}
+
+fileStore.get('file').then((value) => {
+    console.log('loaded', value);
+    if (value) handleFile(value);
+}, console.error);
+</script>
