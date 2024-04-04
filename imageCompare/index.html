@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
   <title>Compare Images</title>
+  <style>html, body {margin: 0}</style>
   <script src="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.css">
 </head>
@@ -15,11 +16,14 @@
   <script>
     console.log(window);
     const urlParams = new URLSearchParams(window.location.search);
-    img0.src = urlParams.get("img0");
-    img1.src = urlParams.get("img1");
+    img0.src = formatLink(urlParams.get("img0"));
+    img1.src = formatLink(urlParams.get("img1"));
     const viewer = new ImageCompare(imageCompare, {
       smoothing: false
     }).mount();
+    function formatLink(src = '') {
+        return src.startsWith('http') ? src : `https://i.imgur.com/${src}`;
+    }
   </script>
 </body>
 </html>
