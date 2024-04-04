@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Compare Images</title>
+  <script src="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/image-compare-viewer/dist/image-compare-viewer.min.css">
+</head>
+<body>
+<div id="imageCompare">
+  <img id="img0" src="" alt="" />
+  <img id="img1" src="" alt="" />
+</div>
+  <script>
+    console.log(window);
+    const urlParams = new URLSearchParams(window.location.search);
+    img0.src = urlParams.get("img0");
+    img1.src = urlParams.get("img1");
+    const viewer = new ImageCompare(imageCompare, {
+      smoothing: false
+    }).mount();
+  </script>
+</body>
+</html>
